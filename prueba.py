@@ -164,3 +164,6 @@ imprimir_solucion(solucion_a_star)
 
 #Interfaz grÃ¡fica
 
+"""
+probando que si se suben los cambios jajaja xd lol
+"""
