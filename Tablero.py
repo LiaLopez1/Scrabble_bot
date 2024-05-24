@@ -12,6 +12,10 @@ class ScrabbleGUI:
         self.ficha_seleccionada = None
         self.indice_ficha_seleccionada = None
 
+        self.posicion_central = (7, 7)  # Posición de la casilla central
+        self.tamano_celda = 40  # Ajusta esto según el tamaño exacto de las celdas
+        self.etiquetas_especiales = {}
+
         self.crear_tablero()
         self.crear_atril()
         self.crear_contador_de_fichas()
@@ -48,16 +52,22 @@ class ScrabbleGUI:
             'TP': [(0,0), (0,7), (0,14), (7,0), (7,14), (14,0), (14,7), (14,14)],
             'centro': [(7,7)]
         }
+        etiquetas_especiales = {'DL': "DL", 'TL': "TL", 'DP': "DP", 'TP': "TP", 'centro': '★'}
 
         for i in range(15):
             fila = []
             for j in range(15):
                 tipo_casilla = next((k for k, v in posiciones_especiales.items() if (i, j) in v), 'normal')
                 color = colores['DP'] if tipo_casilla == 'centro' else colores[tipo_casilla]
-                texto = '★' if tipo_casilla == 'centro' else ''
-                boton = tk.Button(self.marco_tablero, text=texto, font=('Arial', 12, 'bold'), bg=color, height=2, width=4)
+                boton = tk.Button(self.marco_tablero, text='', font=('Arial', 12, 'bold'), bg=color, height=2, width=4)
                 boton.grid(row=i, column=j)
                 boton.bind("<Button-1>", lambda e, x=i, y=j: self.colocar_ficha(e, x, y))
+                if tipo_casilla in etiquetas_especiales:
+                    etiqueta = etiquetas_especiales[tipo_casilla]
+                    color_texto = 'white' if tipo_casilla != 'centro' else 'black'
+                    label = tk.Label(self.marco_tablero, text=etiqueta, font=('Arial', 12, 'bold'), bg=color, fg='white')
+                    label.place(in_=boton, relx=0.5, rely=0.5, anchor="center")
+                    self.etiquetas_especiales[(i, j)] = label
                 fila.append(boton)
             self.botones_tablero.append(fila)
 
@@ -104,7 +114,10 @@ class ScrabbleGUI:
 
     def colocar_ficha(self, event, x, y):
         if self.ficha_seleccionada and not self.botones_tablero[x][y]['text']:
-            self.botones_tablero[x][y].config(text=self.ficha_seleccionada.upper(), fg='black')
+            if (x, y) in self.etiquetas_especiales:
+                self.etiquetas_especiales[(x, y)].destroy()  # Elimina la etiqueta especial
+                del self.etiquetas_especiales[(x, y)]
+            self.botones_tablero[x][y].config(text=self.ficha_seleccionada.upper(), fg='black', bg='#FFECC2')
             self.atril[self.indice_ficha_seleccionada] = None
             self.ficha_seleccionada = None
             self.rellenar_atril()
