@@ -1,13 +1,11 @@
-#Sirve IA y usuario
 import tkinter as tk
 import random
 import nltk
-from nltk.corpus import wordnet as wn, cess_esp
+from nltk.corpus import wordnet as wn
 from googletrans import Translator
 
 nltk.download('wordnet')
 nltk.download('omw-1.4')
-nltk.download('cess_esp')
 
 class ScrabbleGUI:
     def __init__(self, master):
@@ -30,23 +28,14 @@ class ScrabbleGUI:
         self.translator = Translator()
 
         self.puntos_por_letra = self.crear_diccionario_puntos()
-        self.palabras_ia = self.obtener_palabras_esp()  # Usar todas las palabras en español
 
         self.crear_tablero()
         self.crear_atril()
         self.crear_contador_de_fichas()
         self.crear_area_significado()
         self.crear_botones()
-        self.crear_atril_ia_display()
         self.rellenar_atril()
         self.rellenar_atril_ia()
-
-    def obtener_palabras_esp(self):
-        palabras = set()
-        for sentence in cess_esp.sents():
-            for word in sentence:
-                palabras.add(word.lower())
-        return list(palabras)
 
     def crear_bolsa_de_fichas(self):
         fichas = {
@@ -66,16 +55,20 @@ class ScrabbleGUI:
     def rellenar_atril(self):
         while len([ficha for ficha in self.atril if ficha is None]) > 0 and self.bolsa_de_fichas:
             for i in range(7):
-                if not self.atril[i] and self.bolsa_de_fichas:
+                if not self.atril[i]:
                     self.atril[i] = self.bolsa_de_fichas.pop(random.randint(0, len(self.bolsa_de_fichas) - 1))
+                    print(f"Atril jugador rellenado: {self.atril}")
+                    print(f"Fichas restantes en la bolsa: {len(self.bolsa_de_fichas)}")
         self.actualizar_display_atril()
         self.actualizar_contador_fichas()
-
+    
     def rellenar_atril_ia(self):
         while len([ficha for ficha in self.atril_ia if ficha is None]) > 0 and self.bolsa_de_fichas:
             for i in range(7):
-                if not self.atril_ia[i] and self.bolsa_de_fichas:
+                if not self.atril_ia[i]:
                     self.atril_ia[i] = self.bolsa_de_fichas.pop(random.randint(0, len(self.bolsa_de_fichas) - 1))
+                    print(f"Atril IA rellenado: {self.atril_ia}")
+                    print(f"Fichas restantes en la bolsa: {len(self.bolsa_de_fichas)}")
         self.actualizar_display_atril_ia()
         self.actualizar_contador_fichas()
 
@@ -123,20 +116,29 @@ class ScrabbleGUI:
 
     def crear_atril(self):
         self.marco_atril = tk.Frame(self.master, bg='white')
-        self.marco_atril.pack(side=tk.TOP, pady=(10, 20), padx=(20, 20))
+        self.marco_atril.pack(side=tk.TOP, pady=(10, 5), padx=(20, 20))
 
-        self.labels_atril = [self.crear_label_atril() for _ in range(7)]
+        self.labels_atril = [self.crear_label_atril(self.marco_atril) for _ in range(7)]
         for idx, (label, puntaje) in enumerate(self.labels_atril):
             label.pack(side=tk.LEFT, padx=2)
             label.bind("<Button-1>", lambda e, idx=idx: self.seleccionar_ficha(e, idx))
             puntaje.pack(in_=label, anchor='se', padx=2, pady=2)
 
-    def crear_label_atril(self):
-        marco = tk.Frame(self.marco_atril, width=50, height=50, bg='white', relief="groove", bd=2)
-        letra = tk.Label(marco, text='', font=('Arial', 18), width=2, height=1, bg='white')
-        puntaje = tk.Label(marco, text='', font=('Arial', 10), bg='white')
+        # Crear el atril de la IA debajo del atril del usuario
+        self.marco_atril_ia = tk.Frame(self.master, bg='white')
+        self.marco_atril_ia.pack(side=tk.TOP, pady=(5, 20), padx=(20, 20))
+
+        self.labels_atril_ia = [self.crear_label_atril(self.marco_atril_ia) for _ in range(7)]
+        for idx, (label, puntaje) in enumerate(self.labels_atril_ia):
+            label.pack(side=tk.LEFT, padx=2)
+            puntaje.pack(in_=label, anchor='se', padx=2, pady=2)
+
+    def crear_label_atril(self, marco):
+        marco_label = tk.Frame(marco, width=50, height=50, bg='white', relief="groove", bd=2)
+        letra = tk.Label(marco_label, text='', font=('Arial', 18), width=2, height=1, bg='white')
+        puntaje = tk.Label(marco_label, text='', font=('Arial', 10), bg='white')
         letra.pack(side=tk.TOP, padx=(5, 15))
-        return marco, puntaje
+        return marco_label, puntaje
 
     def actualizar_display_atril(self):
         for (marco, puntaje), ficha in zip(self.labels_atril, self.atril):
@@ -146,20 +148,17 @@ class ScrabbleGUI:
                 puntaje.config(text='')
             else:
                 letra.config(text=ficha.upper())
-                puntaje.config(text=f'{self.puntos_por_letra[ficha]}')
-
-    def crear_atril_ia_display(self):
-        self.marco_atril_ia = tk.Frame(self.master, bg='white')
-        self.marco_atril_ia.pack(side=tk.BOTTOM, pady=(10, 20), padx=(20, 20))
-
-        self.labels_atril_ia = [tk.Label(self.marco_atril_ia, text='', font=('Arial', 18), width=3, height=2, relief="groove") for _ in range(7)]
-        for idx, label in enumerate(self.labels_atril_ia):
-            label.pack(side=tk.LEFT, padx=2)
+                puntaje.config(text=(f'{self.puntos_por_letra[ficha]}'))
 
     def actualizar_display_atril_ia(self):
-        for label, ficha in zip(self.labels_atril_ia, self.atril_ia):
-            texto = '' if ficha is None else ficha.upper()
-            label.config(text=texto)
+        for (marco, puntaje), ficha in zip(self.labels_atril_ia, self.atril_ia):
+            letra = marco.winfo_children()[0]
+            if ficha is None:
+                letra.config(text='')
+                puntaje.config(text='')
+            else:
+                letra.config(text=ficha.upper())
+                puntaje.config(text=(f'{self.puntos_por_letra[ficha]}'))
 
     def seleccionar_ficha(self, event, idx):
         if self.atril[idx]:
@@ -219,15 +218,12 @@ class ScrabbleGUI:
         palabras = self.formar_palabras()
         puntos_totales = 0
         self.texto_significado.delete(1.0, tk.END)
-        palabras_validas = set()  # Usamos un conjunto para evitar duplicados
         for palabra in palabras:
             significado = self.obtener_significado(palabra)
             puntos = self.calcular_puntos_palabra(palabra)
             puntos_totales += puntos
             if significado != "Palabra no válida.":
-                if palabra not in palabras_validas:
-                    palabras_validas.add(palabra)
-                    self.texto_significado.insert(tk.END, f"Palabra: {palabra}\nSignificado: {significado}\nPuntos: {puntos}\n\n")
+                self.texto_significado.insert(tk.END, f"Palabra: {palabra}\nSignificado: {significado}\nPuntos: {puntos}\n\n")
             else:
                 self.texto_significado.insert(tk.END, f"La palabra '{palabra}' no es válida.\n\n")
                 self.boton_colocar.config(state=tk.DISABLED)
@@ -285,7 +281,7 @@ class ScrabbleGUI:
     def colocar_palabra(self):
         self.fichas_colocadas.clear()
         self.boton_colocar.config(state=tk.DISABLED)
-        self.rellenar_atril()
+        self.rellenar_atril()  # Rellenar el atril del jugador después de colocar la palabra
         self.turno_ia()
 
     def devolver_todas_las_letras(self):
@@ -313,16 +309,34 @@ class ScrabbleGUI:
     def turno_ia(self):
         posibles_letras = self.encontrar_letras_existentes()
         for letra in posibles_letras:
-            palabra_ia = self.seleccionar_palabra_ia(letra)
-            if palabra_ia and self.obtener_significado(palabra_ia) != "Palabra no válida.":  # Verifica que la palabra sea válida
+            palabra_ia = self.generar_palabra_con_atril_ia(letra)
+            if palabra_ia:
                 posicion_valida = self.encontrar_posicion_valida(palabra_ia, letra)
                 if posicion_valida:
                     self.colocar_palabra_ia(palabra_ia, posicion_valida)
-                    significado_ia = self.obtener_significado(palabra_ia)
-                    puntos_ia = self.calcular_puntos_palabra(palabra_ia)
-                    self.texto_significado.insert(tk.END, f"\nIA colocó la palabra: {palabra_ia}\nSignificado: {significado_ia}\nPuntos: {puntos_ia}\n")
-                    self.rellenar_atril_ia()
+                    self.texto_significado.insert(tk.END, f"\nIA colocó la palabra: {palabra_ia}\n")
+                    self.rellenar_atril_ia()  # Asegurarse de rellenar el atril de la IA
                     return
+
+    def generar_palabra_con_atril_ia(self, letra):
+        x, y, letra_existente = letra
+        posibles_palabras = self.obtener_posibles_palabras(self.atril_ia + [letra_existente.lower()])
+        palabras_validas = [palabra for palabra in posibles_palabras if letra_existente.lower() in palabra]
+        return random.choice(palabras_validas) if palabras_validas else None
+
+    def obtener_posibles_palabras(self, letras):
+        # Genera todas las combinaciones posibles de las letras en el atril de la IA
+        from itertools import permutations
+        palabras = set()
+        for i in range(2, len(letras) + 1):
+            for perm in permutations(letras, i):
+                palabra = ''.join(perm)
+                if self.es_palabra_valida(palabra):
+                    palabras.add(palabra)
+        return list(palabras)
+
+    def es_palabra_valida(self, palabra):
+        return bool(wn.synsets(palabra, lang='spa'))
 
     def encontrar_letras_existentes(self):
         letras_existentes = []
@@ -332,12 +346,6 @@ class ScrabbleGUI:
                 if letra:
                     letras_existentes.append((x, y, letra))
         return letras_existentes
-
-    def seleccionar_palabra_ia(self, letra):
-        atril_ia_completo = ''.join([ficha for ficha in self.atril_ia if ficha]) + letra[2].lower()
-        palabras_validas = [palabra for palabra in self.palabras_ia if all(letra in atril_ia_completo for letra in palabra) and len(palabra) > 1]
-        palabras_validas = [palabra for palabra in palabras_validas if letra[2].lower() in palabra]
-        return random.choice(palabras_validas) if palabras_validas else None
 
     def encontrar_posicion_valida(self, palabra, letra):
         x, y, letra_existente = letra
@@ -370,17 +378,23 @@ class ScrabbleGUI:
 
     def colocar_palabra_ia(self, palabra, posicion):
         x, y, horizontal = posicion
+        letras_usadas = []
         if horizontal:
             for i, letra in enumerate(palabra):
+                if self.botones_tablero[x][y + i]['text'] == '':
+                    letras_usadas.append(letra)
                 self.botones_tablero[x][y + i].config(text=letra.upper(), fg='black', bg='#FFECC2')
-                if letra in self.atril_ia:
-                    self.atril_ia[self.atril_ia.index(letra)] = None
         else:
             for i, letra in enumerate(palabra):
+                if self.botones_tablero[x + i][y]['text'] == '':
+                    letras_usadas.append(letra)
                 self.botones_tablero[x + i][y].config(text=letra.upper(), fg='black', bg='#FFECC2')
-                if letra in self.atril_ia:
-                    self.atril_ia[self.atril_ia.index(letra)] = None
+
+        # Remover las letras usadas del atril de la IA
+        for letra in letras_usadas:
+            self.atril_ia.remove(letra)
         self.actualizar_display_atril_ia()
+        self.rellenar_atril_ia()  # Asegurarse de rellenar el atril de la IA después de colocar una palabra
 
 def main():
     root = tk.Tk()

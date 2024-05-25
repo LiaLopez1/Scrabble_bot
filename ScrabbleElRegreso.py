@@ -1,4 +1,3 @@
-#Sirve IA y usuario
 import tkinter as tk
 import random
 import nltk
@@ -32,12 +31,16 @@ class ScrabbleGUI:
         self.puntos_por_letra = self.crear_diccionario_puntos()
         self.palabras_ia = self.obtener_palabras_esp()  # Usar todas las palabras en español
 
+        self.puntos_jugador = 0  # Puntos del jugador
+        self.puntos_ia = 0  # Puntos de la IA
+
         self.crear_tablero()
         self.crear_atril()
         self.crear_contador_de_fichas()
         self.crear_area_significado()
         self.crear_botones()
         self.crear_atril_ia_display()
+        self.crear_contador_puntos()  # Crear contador de puntos
         self.rellenar_atril()
         self.rellenar_atril_ia()
 
@@ -152,14 +155,20 @@ class ScrabbleGUI:
         self.marco_atril_ia = tk.Frame(self.master, bg='white')
         self.marco_atril_ia.pack(side=tk.BOTTOM, pady=(10, 20), padx=(20, 20))
 
-        self.labels_atril_ia = [tk.Label(self.marco_atril_ia, text='', font=('Arial', 18), width=3, height=2, relief="groove") for _ in range(7)]
-        for idx, label in enumerate(self.labels_atril_ia):
+        self.labels_atril_ia = [self.crear_label_atril() for _ in range(7)]
+        for label, puntaje in self.labels_atril_ia:
             label.pack(side=tk.LEFT, padx=2)
+            puntaje.pack(in_=label, anchor='se', padx=2, pady=2)
 
     def actualizar_display_atril_ia(self):
-        for label, ficha in zip(self.labels_atril_ia, self.atril_ia):
-            texto = '' if ficha is None else ficha.upper()
-            label.config(text=texto)
+        for (marco, puntaje), ficha in zip(self.labels_atril_ia, self.atril_ia):
+            letra = marco.winfo_children()[0]
+            if ficha is None:
+                letra.config(text='')
+                puntaje.config(text='')
+            else:
+                letra.config(text=ficha.upper())
+                puntaje.config(text=f'{self.puntos_por_letra[ficha]}')
 
     def seleccionar_ficha(self, event, idx):
         if self.atril[idx]:
@@ -217,13 +226,11 @@ class ScrabbleGUI:
 
     def validar_palabra(self):
         palabras = self.formar_palabras()
-        puntos_totales = 0
         self.texto_significado.delete(1.0, tk.END)
         palabras_validas = set()  # Usamos un conjunto para evitar duplicados
         for palabra in palabras:
             significado = self.obtener_significado(palabra)
             puntos = self.calcular_puntos_palabra(palabra)
-            puntos_totales += puntos
             if significado != "Palabra no válida.":
                 if palabra not in palabras_validas:
                     palabras_validas.add(palabra)
@@ -269,7 +276,10 @@ class ScrabbleGUI:
         return ''.join(palabra) if len(palabra) > 1 else None
 
     def calcular_puntos_palabra(self, palabra):
-        return sum(self.puntos_por_letra.get(letra, 0) for letra in palabra)
+        puntos = 0
+        for letra in palabra:
+            puntos += self.puntos_por_letra.get(letra, 0)
+        return puntos
 
     def obtener_significado(self, palabra):
         try:
@@ -283,11 +293,20 @@ class ScrabbleGUI:
         return "Palabra no válida."
 
     def colocar_palabra(self):
+        palabras = self.formar_palabras()
+        puntos_totales = 0
+        palabras_unicas = set(palabras)  # Asegura que no haya duplicados
+        for palabra in palabras_unicas:
+            puntos = self.calcular_puntos_palabra(palabra)
+            puntos_totales += puntos
+
+        self.puntos_jugador += puntos_totales  # Actualiza los puntos del jugador al colocar la palabra
+        self.actualizar_contador_puntos()  # Actualiza el contador de puntos en la interfaz
         self.fichas_colocadas.clear()
         self.boton_colocar.config(state=tk.DISABLED)
         self.rellenar_atril()
         self.turno_ia()
-
+        
     def devolver_todas_las_letras(self):
         for x, y, ficha in self.fichas_colocadas:
             self.botones_tablero[x][y].config(text='', bg=self.colores_originales[(x, y)])
@@ -310,6 +329,21 @@ class ScrabbleGUI:
     def actualizar_contador_fichas(self):
         self.label_contador_fichas.config(text=f"Fichas restantes: {len(self.bolsa_de_fichas)}")
 
+    def crear_contador_puntos(self):
+        self.marco_principal.pack(side=tk.TOP, pady=(20, 10), padx=(20, 20), fill=tk.BOTH, expand=True)
+        self.marco_contador_puntos = tk.Frame(self.marco_principal, bg='white')
+        self.marco_contador_puntos.pack(side=tk.TOP, pady=(10, 20))
+        self.marco_atril.pack(side=tk.TOP, pady=(10, 20), padx=(20, 20))
+        self.marco_atril_ia.pack(side=tk.BOTTOM, pady=(10, 20), padx=(20, 20))
+        self.label_puntos_jugador = tk.Label(self.marco_contador_puntos, text=f"Puntos jugador: {self.puntos_jugador}", font=('Arial', 18))
+        self.label_puntos_jugador.pack(side=tk.LEFT, padx=10, pady=10)
+        self.label_puntos_ia = tk.Label(self.marco_contador_puntos, text=f"Puntos IA: {self.puntos_ia}", font=('Arial', 18))
+        self.label_puntos_ia.pack(side=tk.LEFT, padx=10, pady=10)
+
+    def actualizar_contador_puntos(self):
+        self.label_puntos_jugador.config(text=f"Puntos jugador: {self.puntos_jugador}")
+        self.label_puntos_ia.config(text=f"Puntos IA: {self.puntos_ia}")
+
     def turno_ia(self):
         posibles_letras = self.encontrar_letras_existentes()
         for letra in posibles_letras:
@@ -320,6 +354,8 @@ class ScrabbleGUI:
                     self.colocar_palabra_ia(palabra_ia, posicion_valida)
                     significado_ia = self.obtener_significado(palabra_ia)
                     puntos_ia = self.calcular_puntos_palabra(palabra_ia)
+                    self.puntos_ia += puntos_ia  # Actualiza los puntos de la IA
+                    self.actualizar_contador_puntos()  # Actualiza el contador de puntos en la interfaz
                     self.texto_significado.insert(tk.END, f"\nIA colocó la palabra: {palabra_ia}\nSignificado: {significado_ia}\nPuntos: {puntos_ia}\n")
                     self.rellenar_atril_ia()
                     return
