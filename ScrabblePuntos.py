@@ -11,7 +11,7 @@ class ScrabbleGUI:
     def __init__(self, master):
         self.master = master
         self.master.title("Scrabble-bot")
-        self.master.geometry("1200x1000")  # Dimensiones ajustadas para el atril y el contador de fichas
+        self.master.geometry("1200x1000")
 
         self.bolsa_de_fichas = self.crear_bolsa_de_fichas()
         self.atril = [None] * 7
@@ -19,12 +19,12 @@ class ScrabbleGUI:
         self.indice_ficha_seleccionada = None
         self.fichas_colocadas = []
 
-        self.posicion_central = (7, 7)  # Posición de la casilla central
-        self.tamano_celda = 40  # Ajusta esto según el tamaño exacto de las celdas
+        self.posicion_central = (7, 7) 
+        self.tamano_celda = 40  
         self.etiquetas_especiales = {}
         self.colores_originales = {}
 
-        self.translator = Translator()  # Inicializar el traductor
+        self.translator = Translator()  
 
         self.puntos_por_letra = self.crear_diccionario_puntos()
         self.palabras_ia = ['hola', 'mundo', 'python', 'codigo', 'juego']
@@ -37,12 +37,12 @@ class ScrabbleGUI:
         self.rellenar_atril()
 
     def crear_bolsa_de_fichas(self):
-            fichas = {
-                'a': 12, 'b': 2, 'c': 4, 'ch': 1, 'd': 5, 'e': 12, 'f': 1, 'g': 2, 'h': 2, 'i': 6,
-                'j': 1, 'l': 4, 'll': 1, 'm': 2, 'n': 5, 'ñ': 1, 'o': 9, 'p': 2, 'q': 1, 'r': 5,
-                'rr': 1, 's': 6, 't': 4, 'u': 5, 'v': 1, 'x': 1, 'y': 1, 'z': 1, 'comodín': 2
-            }
-            return [ficha for ficha, cantidad in fichas.items() for _ in range(cantidad)]
+        fichas = {
+            'a': 12, 'b': 2, 'c': 4, 'ch': 1, 'd': 5, 'e': 12, 'f': 1, 'g': 2, 'h': 2, 'i': 6,
+            'j': 1, 'l': 4, 'll': 1, 'm': 2, 'n': 5, 'ñ': 1, 'o': 9, 'p': 2, 'q': 1, 'r': 5,
+            'rr': 1, 's': 6, 't': 4, 'u': 5, 'v': 1, 'x': 1, 'y': 1, 'z': 1, 'comodín': 2
+        }
+        return [ficha for ficha, cantidad in fichas.items() for _ in range(cantidad)]
     
     def crear_diccionario_puntos(self):
         return {
@@ -85,14 +85,14 @@ class ScrabbleGUI:
             for j in range(15):
                 tipo_casilla = next((k for k, v in posiciones_especiales.items() if (i, j) in v), 'normal')
                 color = colores['DP'] if tipo_casilla == 'centro' else colores[tipo_casilla]
-                self.colores_originales[(i, j)] = color  # Guardar el color original
+                self.colores_originales[(i, j)] = color  
                 boton = tk.Button(self.marco_tablero, text='', font=('Arial', 12, 'bold'), bg=color, height=2, width=4)
                 boton.grid(row=i, column=j)
                 boton.bind("<Button-1>", lambda e, x=i, y=j: self.colocar_ficha(e, x, y))
                 if tipo_casilla in etiquetas_especiales:
                     etiqueta = etiquetas_especiales[tipo_casilla]
                     color_texto = 'white' if tipo_casilla != 'centro' else 'black'
-                    label = tk.Label(self.marco_tablero, text=etiqueta, font=('Arial', 12, 'bold'), bg=color, fg='white')
+                    label = tk.Label(self.marco_tablero, text=etiqueta, font=('Arial', 12, 'bold'), bg=color, fg=color_texto)
                     label.place(in_=boton, relx=0.5, rely=0.5, anchor="center")
                     self.etiquetas_especiales[(i, j)] = label
                 fila.append(boton)
@@ -105,25 +105,37 @@ class ScrabbleGUI:
         self.marco_atril = tk.Frame(self.master, bg='white')
         self.marco_atril.pack(side=tk.TOP, pady=(10, 20), padx=(20, 20))
 
-        self.labels_atril = [tk.Label(self.marco_atril, text='', font=('Arial', 18), width=3, height=2, relief="groove") for _ in range(7)]
-        for idx, label in enumerate(self.labels_atril):
+        self.labels_atril = [self.crear_label_atril() for _ in range(7)]
+        for idx, (label, puntaje) in enumerate(self.labels_atril):
             label.pack(side=tk.LEFT, padx=2)
             label.bind("<Button-1>", lambda e, idx=idx: self.seleccionar_ficha(e, idx))
+            puntaje.pack(in_=label, anchor='se', padx=2, pady=2)
+
+    def crear_label_atril(self):
+        marco = tk.Frame(self.marco_atril, width=50, height=50, bg='white', relief="groove", bd=2)
+        letra = tk.Label(marco, text='', font=('Arial', 18), width=2, height=1, bg='white')
+        puntaje = tk.Label(marco, text='', font=('Arial', 10), bg='white')
+        letra.pack(side=tk.TOP, padx=(5, 15))
+        return marco, puntaje
 
     def actualizar_display_atril(self):
-        for label, ficha in zip(self.labels_atril, self.atril):
-            texto = '' if ficha is None else ficha.upper()  # Mostrar en blanco si la ficha es None
-            label.config(text=texto)
+        for (marco, puntaje), ficha in zip(self.labels_atril, self.atril):
+            letra = marco.winfo_children()[0]
+            if ficha is None:
+                letra.config(text='')
+                puntaje.config(text='')
+            else:
+                letra.config(text=ficha.upper())
+                puntaje.config(text=f'{self.puntos_por_letra[ficha]}')
 
     def seleccionar_ficha(self, event, idx):
         if self.atril[idx]:
             self.ficha_seleccionada = self.atril[idx]
             self.indice_ficha_seleccionada = idx
             if self.ficha_seleccionada == 'comodín':
-                self.manejar_comodin(event, idx)  # Manejo especial para el comodín
+                self.manejar_comodin(event, idx)
 
     def manejar_comodin(self, event, idx):
-        """ Permite al jugador elegir qué letra representa el comodín. """
         top = tk.Toplevel(self.master)
         top.title("Elegir una letra para el comodín")
         mensaje = tk.Label(top, text="Ingrese una letra para representar este comodín:", font=("Arial", 14))
@@ -135,7 +147,7 @@ class ScrabbleGUI:
         def confirmar():
             letra = entrada.get().strip().lower()
             if len(letra) == 1 and letra.isalpha():
-                self.atril[idx] = letra  # Establecer el comodín para representar la letra elegida
+                self.atril[idx] = letra  
                 self.actualizar_display_atril()
                 top.destroy()
 
@@ -145,13 +157,16 @@ class ScrabbleGUI:
     def colocar_ficha(self, event, x, y):
         if self.ficha_seleccionada and not self.botones_tablero[x][y]['text']:
             if (x, y) in self.etiquetas_especiales:
-                self.etiquetas_especiales[(x, y)].destroy()  # Elimina la etiqueta especial
+                self.etiquetas_especiales[(x, y)].destroy()
                 del self.etiquetas_especiales[(x, y)]
             self.botones_tablero[x][y].config(text=self.ficha_seleccionada.upper(), fg='black', bg='#FFECC2')
+            puntaje = self.puntos_por_letra[self.ficha_seleccionada]
+            label_puntaje = tk.Label(self.master, text=str(puntaje), font=('Arial', 8), bg='#FFECC2', fg='black')
+            label_puntaje.place(in_=self.botones_tablero[x][y], relx=0.99, rely=0.99, anchor="se")
             self.fichas_colocadas.append((x, y, self.ficha_seleccionada))
-            self.atril[self.indice_ficha_seleccionada] = None  # Eliminar la ficha del atril
+            self.atril[self.indice_ficha_seleccionada] = None
             self.ficha_seleccionada = None
-            self.actualizar_display_atril()  # Actualizar el display del atril
+            self.actualizar_display_atril()
 
     def crear_area_significado(self):
         self.texto_significado = tk.Text(self.marco_lateral, height=10, width=50, wrap=tk.WORD)
@@ -174,22 +189,19 @@ class ScrabbleGUI:
         self.texto_significado.delete(1.0, tk.END)
         if significado != "Palabra no válida.":
             self.texto_significado.insert(tk.END, f"Palabra: {palabra}\nSignificado: {significado}\nPuntos: {puntos}")
-            self.boton_colocar.config(state=tk.NORMAL)  # Habilitar el botón "Colocar palabra" si es válida
+            self.boton_colocar.config(state=tk.NORMAL)
         else:
             self.texto_significado.insert(tk.END, f"La palabra '{palabra}' no es válida.")
-            self.boton_colocar.config(state=tk.DISABLED)  # Mantener deshabilitado el botón "Colocar palabra"
+            self.boton_colocar.config(state=tk.DISABLED)
 
     def calcular_puntos_palabra(self, palabra):
         return sum(self.puntos_por_letra.get(letra, 0) for letra in palabra)
 
     def obtener_significado(self, palabra):
         try:
-            # Primero verificamos si la palabra existe en español
             significados = wn.synsets(palabra, lang='spa')
             if significados:
-                # Obtenemos la definición en inglés
                 significado = significados[0].definition()
-                # Traducimos la definición al español
                 traduccion = self.translator.translate(significado, src='en', dest='es')
                 return traduccion.text
         except Exception as e:
@@ -197,14 +209,13 @@ class ScrabbleGUI:
         return "Palabra no válida."
 
     def colocar_palabra(self):
-        # Colocar las fichas en el tablero permanentemente
         self.fichas_colocadas.clear()
-        self.boton_colocar.config(state=tk.DISABLED)  # Deshabilitar el botón "Colocar palabra"
-        self.turno_ia()  # Iniciar el turno de la IA
+        self.boton_colocar.config(state=tk.DISABLED)
+        self.turno_ia()
 
     def devolver_todas_las_letras(self):
         for x, y, ficha in self.fichas_colocadas:
-            self.botones_tablero[x][y].config(text='', bg=self.colores_originales[(x, y)])  # Restaurar el color original
+            self.botones_tablero[x][y].config(text='', bg=self.colores_originales[(x, y)])
             if (x, y) in self.etiquetas_especiales:
                 self.etiquetas_especiales[(x, y)].place(in_=self.botones_tablero[x][y], relx=0.5, rely=0.5, anchor="center")
             for i in range(7):
@@ -213,7 +224,7 @@ class ScrabbleGUI:
                     break
         self.fichas_colocadas.clear()
         self.actualizar_display_atril()
-        self.boton_colocar.config(state=tk.DISABLED)  # Deshabilitar el botón "Colocar palabra"
+        self.boton_colocar.config(state=tk.DISABLED)
 
     def crear_contador_de_fichas(self):
         self.marco_contador_fichas = tk.Frame(self.master, bg='white')
@@ -225,12 +236,66 @@ class ScrabbleGUI:
         self.label_contador_fichas.config(text=f"Fichas restantes: {len(self.bolsa_de_fichas)}")
 
     def turno_ia(self):
-        palabra_ia = random.choice(self.palabras_ia)
-        x, y = self.posicion_central
-        for letra in palabra_ia:
-            self.botones_tablero[x][y].config(text=letra.upper(), fg='black', bg='#FFECC2')
-            y += 1
-        self.texto_significado.insert(tk.END, f"\nIA colocó la palabra: {palabra_ia}\n")
+        posibles_letras = self.encontrar_letras_existentes()
+        for letra in posibles_letras:
+            palabra_ia = self.seleccionar_palabra_ia(letra)
+            if palabra_ia:
+                posicion_valida = self.encontrar_posicion_valida(palabra_ia, letra)
+                if posicion_valida:
+                    self.colocar_palabra_ia(palabra_ia, posicion_valida)
+                    self.texto_significado.insert(tk.END, f"\nIA colocó la palabra: {palabra_ia}\n")
+                    return
+
+    def encontrar_letras_existentes(self):
+        letras_existentes = []
+        for x in range(15):
+            for y in range(15):
+                letra = self.botones_tablero[x][y]['text']
+                if letra:
+                    letras_existentes.append((x, y, letra))
+        return letras_existentes
+
+    def seleccionar_palabra_ia(self, letra):
+        palabras_validas = [palabra for palabra in self.palabras_ia if letra[2].lower() in palabra]
+        return random.choice(palabras_validas) if palabras_validas else None
+
+    def encontrar_posicion_valida(self, palabra, letra):
+        x, y, letra_existente = letra
+        for i, l in enumerate(palabra):
+            if l == letra_existente.lower():
+                if self.es_posicion_valida(x, y - i, palabra, horizontal=True):
+                    return (x, y - i, True)
+                if self.es_posicion_valida(x - i, y, palabra, horizontal=False):
+                    return (x - i, y, False)
+        return None
+
+    def es_posicion_valida(self, x, y, palabra, horizontal):
+        if horizontal:
+            if y < 0 or y + len(palabra) > 15:
+                return False
+            for i, letra in enumerate(palabra):
+                if not (0 <= x < 15 and 0 <= y + i < 15):
+                    return False
+                if self.botones_tablero[x][y + i]['text'] not in ('', letra.upper()):
+                    return False
+        else:
+            if x < 0 or x + len(palabra) > 15:
+                return False
+            for i, letra in enumerate(palabra):
+                if not (0 <= x + i < 15 and 0 <= y < 15):
+                    return False
+                if self.botones_tablero[x + i][y]['text'] not in ('', letra.upper()):
+                    return False
+        return True
+
+    def colocar_palabra_ia(self, palabra, posicion):
+        x, y, horizontal = posicion
+        if horizontal:
+            for i, letra in enumerate(palabra):
+                self.botones_tablero[x][y + i].config(text=letra.upper(), fg='black', bg='#FFECC2')
+        else:
+            for i, letra in enumerate(palabra):
+                self.botones_tablero[x + i][y].config(text=letra.upper(), fg='black', bg='#FFECC2')
 
 def main():
     root = tk.Tk()
