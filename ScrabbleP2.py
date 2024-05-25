@@ -19,12 +19,12 @@ class ScrabbleGUI:
         self.indice_ficha_seleccionada = None
         self.fichas_colocadas = []
 
-        self.posicion_central = (7, 7) 
-        self.tamano_celda = 40  
+        self.posicion_central = (7, 7)
+        self.tamano_celda = 40
         self.etiquetas_especiales = {}
         self.colores_originales = {}
 
-        self.translator = Translator()  
+        self.translator = Translator()
 
         self.puntos_por_letra = self.crear_diccionario_puntos()
         self.palabras_ia = ['hola', 'mundo', 'python', 'codigo', 'juego']
@@ -167,16 +167,54 @@ class ScrabbleGUI:
         self.boton_devolver.pack(side=tk.TOP, pady=20)
 
     def validar_palabra(self):
-        palabra = ''.join([self.botones_tablero[x][y]['text'] for x, y, _ in self.fichas_colocadas]).lower()
-        significado = self.obtener_significado(palabra)
-        puntos = self.calcular_puntos_palabra(palabra)
+        palabras = self.formar_palabras()
+        puntos_totales = 0
         self.texto_significado.delete(1.0, tk.END)
-        if significado != "Palabra no válida.":
-            self.texto_significado.insert(tk.END, f"Palabra: {palabra}\nSignificado: {significado}\nPuntos: {puntos}")
-            self.boton_colocar.config(state=tk.NORMAL)
+        for palabra in palabras:
+            significado = self.obtener_significado(palabra)
+            puntos = self.calcular_puntos_palabra(palabra)
+            puntos_totales += puntos
+            if significado != "Palabra no válida.":
+                self.texto_significado.insert(tk.END, f"Palabra: {palabra}\nSignificado: {significado}\nPuntos: {puntos}\n\n")
+            else:
+                self.texto_significado.insert(tk.END, f"La palabra '{palabra}' no es válida.\n\n")
+                self.boton_colocar.config(state=tk.DISABLED)
+                return
+        self.boton_colocar.config(state=tk.NORMAL)
+
+    def formar_palabras(self):
+        palabras = []
+        # Horizontal
+        for x, y, _ in self.fichas_colocadas:
+            palabra = self.formar_palabra_completa(x, y, horizontal=True)
+            if palabra:
+                palabras.append(palabra)
+        # Vertical
+        for x, y, _ in self.fichas_colocadas:
+            palabra = self.formar_palabra_completa(x, y, horizontal=False)
+            if palabra:
+                palabras.append(palabra)
+        return palabras
+
+    def formar_palabra_completa(self, x, y, horizontal):
+        palabra = []
+        if horizontal:
+            # Mover a la izquierda hasta encontrar el inicio de la palabra
+            while y > 0 and self.botones_tablero[x][y-1]['text']:
+                y -= 1
+            # Formar palabra hacia la derecha
+            while y < 15 and self.botones_tablero[x][y]['text']:
+                palabra.append(self.botones_tablero[x][y]['text'].lower())
+                y += 1
         else:
-            self.texto_significado.insert(tk.END, f"La palabra '{palabra}' no es válida.")
-            self.boton_colocar.config(state=tk.DISABLED)
+            # Mover hacia arriba hasta encontrar el inicio de la palabra
+            while x > 0 and self.botones_tablero[x-1][y]['text']:
+                x -= 1
+            # Formar palabra hacia abajo
+            while x < 15 and self.botones_tablero[x][y]['text']:
+                palabra.append(self.botones_tablero[x][y]['text'].lower())
+                x += 1
+        return ''.join(palabra) if len(palabra) > 1 else None
 
     def calcular_puntos_palabra(self, palabra):
         return sum(self.puntos_por_letra.get(letra, 0) for letra in palabra)
@@ -195,6 +233,7 @@ class ScrabbleGUI:
     def colocar_palabra(self):
         self.fichas_colocadas.clear()
         self.boton_colocar.config(state=tk.DISABLED)
+        self.rellenar_atril()  # Rellenar el atril del jugador después de colocar la palabra
         self.turno_ia()
 
     def devolver_todas_las_letras(self):
