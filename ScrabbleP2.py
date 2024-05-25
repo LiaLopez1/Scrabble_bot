@@ -1,3 +1,6 @@
+#codigo implementando la ia y su turno despues de colocar la plabra
+
+
 import tkinter as tk
 import random
 import nltk
