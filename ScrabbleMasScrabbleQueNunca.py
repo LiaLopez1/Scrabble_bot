@@ -20,17 +20,18 @@ class ScrabbleGUI:
         self.ficha_seleccionada = None
         self.indice_ficha_seleccionada = None
         self.fichas_colocadas = []
-        self.fichas_colocadas_ia = []
+        self.letras_colocadas_turno_actual = []
+
 
         self.posicion_central = (7, 7)
         self.tamano_celda = 40
         self.etiquetas_especiales = {}
         self.colores_originales = {}
+        self.puntaje_labels = {}
 
         self.translator = Translator()
 
         self.puntos_por_letra = self.crear_diccionario_puntos()
-        self.multiplicadores = self.crear_diccionario_multiplicadores()
         self.palabras_ia = self.obtener_palabras_esp()  # Usar todas las palabras en español
 
         self.puntos_jugador = 0  # Puntos del jugador
@@ -66,11 +67,6 @@ class ScrabbleGUI:
             'a': 1, 'b': 3, 'c': 3, 'ch': 5, 'd': 2, 'e': 1, 'f': 4, 'g': 2, 'h': 4, 'i': 1,
             'j': 8, 'l': 1, 'll': 8, 'm': 3, 'n': 1, 'ñ': 8, 'o': 1, 'p': 3, 'q': 5, 'r': 1,
             'rr': 8, 's': 1, 't': 1, 'u': 1, 'v': 4, 'x': 8, 'y': 4, 'z': 10, 'comodín': 0
-        }
-    
-    def crear_diccionario_multiplicadores(self):
-        return {
-            'DL': 2, 'TL': 3, 'DP': 2, 'TP': 3
         }
 
     def rellenar_atril(self):
@@ -109,8 +105,6 @@ class ScrabbleGUI:
             'centro': [(7,7)]
         }
         etiquetas_especiales = {'DL': "DL", 'TL': "TL", 'DP': "DP", 'TP': "TP", 'centro': '★'}
-
-        self.posiciones_especiales = posiciones_especiales  # Guardar posiciones especiales
 
         for i in range(15):
             fila = []
@@ -214,7 +208,9 @@ class ScrabbleGUI:
             puntaje = self.puntos_por_letra[self.ficha_seleccionada]
             label_puntaje = tk.Label(self.master, text=str(puntaje), font=('Arial', 8), bg='#FFECC2', fg='black')
             label_puntaje.place(in_=self.botones_tablero[x][y], relx=0.99, rely=0.99, anchor="se")
+            self.puntaje_labels[(x, y)] = label_puntaje  # Guardar el label en el diccionario
             self.fichas_colocadas.append((x, y, self.ficha_seleccionada))
+            self.letras_colocadas_turno_actual.append((x, y, self.ficha_seleccionada))  # Guardar las letras colocadas en el turno actual
             self.atril[self.indice_ficha_seleccionada] = None
             self.ficha_seleccionada = None
             self.actualizar_display_atril()
@@ -239,7 +235,7 @@ class ScrabbleGUI:
         palabras_validas = set()  # Usamos un conjunto para evitar duplicados
         for palabra in palabras:
             significado = self.obtener_significado(palabra)
-            puntos = self.calcular_puntos_palabra(palabra, self.fichas_colocadas)
+            puntos = self.calcular_puntos_palabra(palabra)
             if significado != "Palabra no válida.":
                 if palabra not in palabras_validas:
                     palabras_validas.add(palabra)
@@ -253,12 +249,12 @@ class ScrabbleGUI:
     def formar_palabras(self):
         palabras = []
         # Horizontal
-        for x, y, _ in self.fichas_colocadas:
+        for x, y, _ in self.letras_colocadas_turno_actual:
             palabra = self.formar_palabra_completa(x, y, horizontal=True)
             if palabra:
                 palabras.append(palabra)
         # Vertical
-        for x, y, _ in self.fichas_colocadas:
+        for x, y, _ in self.letras_colocadas_turno_actual:
             palabra = self.formar_palabra_completa(x, y, horizontal=False)
             if palabra:
                 palabras.append(palabra)
@@ -284,26 +280,40 @@ class ScrabbleGUI:
                 x += 1
         return ''.join(palabra) if len(palabra) > 1 else None
 
-    def calcular_puntos_palabra(self, palabra, fichas_colocadas):
+
+    def calcular_puntos_palabra(self, palabra):
         puntos = 0
         multiplicador_palabra = 1
+        posiciones_especiales = {
+            'DL': [(3,0), (11,0), (6,2), (8,2), (0,3), (7,3), (14,3), (2,6), (2,8), (6,6), (8,6), (12,6),
+                (3,7), (11,7), (3,14), (11,14), (6,12), (8,12), (0,11), (7,11), (14,11), (2,8), (6,8),
+                (8,8), (12,8)],
+            'TL': [(5,1), (9,1), (1,5), (5,5), (9,5), (13,5), (5,13), (9,13), (1,9), (5,9), (9,9), (13,9)],
+            'DP': [(1,1), (2,2), (3,3), (4,4), (13,1), (12,2), (11,3), (10,4), (1,13), (2,12), (3,11), (4,10),
+                (13,13), (12,12), (11,11), (10,10)],
+            'TP': [(0,0), (0,7), (0,14), (7,0), (7,14), (14,0), (14,7), (14,14)],
+            'centro': [(7,7)]
+        }
+        for letra in palabra:
+            try:
+                x, y = [(i, j) for (i, j, l) in self.fichas_colocadas if l.lower() == letra.lower()][0]
+            except IndexError:
+                continue
+            puntos_letra = self.puntos_por_letra.get(letra.lower(), 0)
+            if (x, y) in posiciones_especiales['DL']:
+                puntos += puntos_letra * 2
+            elif (x, y) in posiciones_especiales['TL']:
+                puntos += puntos_letra * 3
+            elif (x, y) in posiciones_especiales['DP']:
+                puntos += puntos_letra
+                multiplicador_palabra *= 2
+            elif (x, y) in posiciones_especiales['TP']:
+                puntos += puntos_letra
+                multiplicador_palabra *= 3
+            else:
+                puntos += puntos_letra
+        return puntos * multiplicador_palabra
 
-        for (x, y, letra) in fichas_colocadas:
-            multiplicador_letra = 1
-            tipo_casilla = next((k for k, v in self.posiciones_especiales.items() if (x, y) in v), 'normal')
-
-            if tipo_casilla in self.multiplicadores:
-                if tipo_casilla == 'DL':
-                    multiplicador_letra = self.multiplicadores[tipo_casilla]
-                elif tipo_casilla == 'TL':
-                    multiplicador_letra = self.multiplicadores[tipo_casilla]
-                elif tipo_casilla == 'DP' or tipo_casilla == 'TP':
-                    multiplicador_palabra *= self.multiplicadores[tipo_casilla]
-
-            puntos += self.puntos_por_letra[letra] * multiplicador_letra
-
-        puntos *= multiplicador_palabra
-        return puntos
 
     def obtener_significado(self, palabra):
         try:
@@ -321,28 +331,71 @@ class ScrabbleGUI:
         puntos_totales = 0
         palabras_unicas = set(palabras)  # Asegura que no haya duplicados
         for palabra in palabras_unicas:
-            puntos = self.calcular_puntos_palabra(palabra, self.fichas_colocadas)
+            puntos = self.calcular_puntos_palabra(palabra)
             puntos_totales += puntos
 
         self.puntos_jugador += puntos_totales  # Actualiza los puntos del jugador al colocar la palabra
         self.actualizar_contador_puntos()  # Actualiza el contador de puntos en la interfaz
         self.fichas_colocadas.clear()
+        self.letras_colocadas_turno_actual.clear()  # Limpiar las letras del turno actual
         self.boton_colocar.config(state=tk.DISABLED)
         self.rellenar_atril()
         self.turno_ia()
 
+
+    def limpiar_casilla(self, x, y):
+        # Eliminar el label del puntaje si existe
+        if (x, y) in self.puntaje_labels:
+            self.puntaje_labels[(x, y)].destroy()
+            del self.puntaje_labels[(x, y)]
+        # Restaurar la casilla a su color original y eliminar el texto
+        self.botones_tablero[x][y].config(text='', bg=self.colores_originales[(x, y)])
+        # Restaurar el label de la casilla especial si existe
+        self.restaurar_etiqueta_especial(x, y)
+
+    def restaurar_etiqueta_especial(self, x, y):
+        posiciones_especiales = {
+            'DL': [(3,0), (11,0), (6,2), (8,2), (0,3), (7,3), (14,3), (2,6), (2,8), (6,6), (8,6), (12,6),
+                   (3,7), (11,7), (3,14), (11,14), (6,12), (8,12), (0,11), (7,11), (14,11), (2,8), (6,8),
+                   (8,8), (12,8)],
+            'TL': [(5,1), (9,1), (1,5), (5,5), (9,5), (13,5), (5,13), (9,13), (1,9), (5,9), (9,9), (13,9)],
+            'DP': [(1,1), (2,2), (3,3), (4,4), (13,1), (12,2), (11,3), (10,4), (1,13), (2,12), (3,11), (4,10),
+                   (13,13), (12,12), (11,11), (10,10)],
+            'TP': [(0,0), (0,7), (0,14), (7,0), (7,14), (14,0), (14,7), (14,14)],
+            'centro': [(7,7)]
+        }
+        etiquetas_especiales = {'DL': "DL", 'TL': "TL", 'DP': "DP", 'TP': "TP", 'centro': '★'}
+        
+        if (x, y) in self.etiquetas_especiales:
+            etiqueta = self.etiquetas_especiales[(x, y)]
+            etiqueta.place(in_=self.botones_tablero[x][y], relx=0.5, rely=0.5, anchor="center")
+        else:
+            for tipo_casilla, posiciones in posiciones_especiales.items():
+                if (x, y) in posiciones:
+                    etiqueta = etiquetas_especiales[tipo_casilla]
+                    color_texto = 'white' if tipo_casilla != 'centro' else 'black'
+                    label = tk.Label(self.marco_tablero, text=etiqueta, font=('Arial', 12, 'bold'), bg=self.colores_originales[(x, y)], fg=color_texto)
+                    label.place(in_=self.botones_tablero[x][y], relx=0.5, rely=0.5, anchor="center")
+                    self.etiquetas_especiales[(x, y)] = label
+
     def devolver_todas_las_letras(self):
-        for x, y, ficha in self.fichas_colocadas:
+        for x, y, ficha in self.letras_colocadas_turno_actual:
+            # Limpiar la casilla
+            self.limpiar_casilla(x, y)
+            # Restaurar la casilla a su color original
             self.botones_tablero[x][y].config(text='', bg=self.colores_originales[(x, y)])
+            # Restaurar el label de la casilla especial si existe
             if (x, y) in self.etiquetas_especiales:
                 self.etiquetas_especiales[(x, y)].place(in_=self.botones_tablero[x][y], relx=0.5, rely=0.5, anchor="center")
+            # Devolver la ficha al atril
             for i in range(7):
                 if self.atril[i] is None:
                     self.atril[i] = ficha
                     break
-        self.fichas_colocadas.clear()
+        self.letras_colocadas_turno_actual.clear()
         self.actualizar_display_atril()
         self.boton_colocar.config(state=tk.DISABLED)
+
 
     def crear_contador_de_fichas(self):
         self.marco_contador_fichas = tk.Frame(self.master, bg='white')
@@ -376,14 +429,16 @@ class ScrabbleGUI:
                 posicion_valida = self.encontrar_posicion_valida(palabra_ia, letra)
                 if posicion_valida:
                     self.colocar_palabra_ia(palabra_ia, posicion_valida)
-                    puntos_ia = self.calcular_puntos_palabra(palabra_ia, self.fichas_colocadas_ia)
+                    significado_ia = self.obtener_significado(palabra_ia)
+                    puntos_ia = self.calcular_puntos_palabra(palabra_ia)
                     self.puntos_ia += puntos_ia  # Actualiza los puntos de la IA
                     self.actualizar_contador_puntos()  # Actualiza el contador de puntos en la interfaz
-                    significado_ia = self.obtener_significado(palabra_ia)
                     self.texto_significado.insert(tk.END, f"\nIA colocó la palabra: {palabra_ia}\nSignificado: {significado_ia}\nPuntos: {puntos_ia}\n")
                     self.rellenar_atril_ia()
-                    self.fichas_colocadas_ia.clear()  # Limpiar las fichas colocadas por la IA después de calcular los puntos
                     return
+        # Si no se encontró ninguna palabra válida
+        self.texto_significado.insert(tk.END, "\nLa IA no pudo formar una palabra en este turno.\n")
+
 
     def encontrar_letras_existentes(self):
         letras_existentes = []
@@ -396,7 +451,7 @@ class ScrabbleGUI:
 
     def seleccionar_palabra_ia(self, letra):
         atril_ia_completo = ''.join([ficha for ficha in self.atril_ia if ficha]) + letra[2].lower()
-        palabras_validas = [palabra for palabra in self.palabras_ia if all(letra in atril_ia_completo for letra in palabra) and len(palabra) > 1]
+        palabras_validas = [palabra for palabra in self.palabras_ia if all(atril_ia_completo.count(l) >= palabra.count(l) for l in set(palabra))]
         palabras_validas = [palabra for palabra in palabras_validas if letra[2].lower() in palabra]
         return random.choice(palabras_validas) if palabras_validas else None
 
@@ -431,21 +486,34 @@ class ScrabbleGUI:
 
     def colocar_palabra_ia(self, palabra, posicion):
         x, y, horizontal = posicion
-        self.fichas_colocadas_ia = []  # Inicializar las fichas colocadas por la IA
         if horizontal:
             for i, letra in enumerate(palabra):
-                if not self.botones_tablero[x][y + i]['text']:  # Solo si la celda está vacía
-                    self.botones_tablero[x][y + i].config(text=letra.upper(), fg='black', bg='#FFECC2')
-                    self.fichas_colocadas_ia.append((x, y + i, letra))  # Registrar la ficha colocada
-                    if letra in self.atril_ia:
-                        self.atril_ia[self.atril_ia.index(letra)] = None
+                if (x, y + i) in self.etiquetas_especiales:
+                    self.etiquetas_especiales[(x, y + i)].destroy()
+                    del self.etiquetas_especiales[(x, y + i)]
+                self.botones_tablero[x][y + i].config(text=letra.upper(), fg='black', bg='#FFECC2')
+                if letra in self.atril_ia:
+                    self.atril_ia[self.atril_ia.index(letra)] = None
+                # Agregar la letra a fichas_colocadas
+                self.fichas_colocadas.append((x, y + i, letra))
+                # Agregar el puntaje de la letra en el tablero
+                puntaje = self.puntos_por_letra[letra]
+                label_puntaje = tk.Label(self.master, text=str(puntaje), font=('Arial', 8), bg='#FFECC2', fg='black')
+                label_puntaje.place(in_=self.botones_tablero[x][y + i], relx=0.99, rely=0.99, anchor="se")
         else:
             for i, letra in enumerate(palabra):
-                if not self.botones_tablero[x + i][y]['text']:  # Solo si la celda está vacía
-                    self.botones_tablero[x + i][y].config(text=letra.upper(), fg='black', bg='#FFECC2')
-                    self.fichas_colocadas_ia.append((x + i, y, letra))  # Registrar la ficha colocada
-                    if letra in self.atril_ia:
-                        self.atril_ia[self.atril_ia.index(letra)] = None
+                if (x + i, y) in self.etiquetas_especiales:
+                    self.etiquetas_especiales[(x + i, y)].destroy()
+                    del self.etiquetas_especiales[(x + i, y)]
+                self.botones_tablero[x + i][y].config(text=letra.upper(), fg='black', bg='#FFECC2')
+                if letra in self.atril_ia:
+                    self.atril_ia[self.atril_ia.index(letra)] = None
+                # Agregar la letra a fichas_colocadas
+                self.fichas_colocadas.append((x + i, y, letra))
+                # Agregar el puntaje de la letra en el tablero
+                puntaje = self.puntos_por_letra[letra]
+                label_puntaje = tk.Label(self.master, text=str(puntaje), font=('Arial', 8), bg='#FFECC2', fg='black')
+                label_puntaje.place(in_=self.botones_tablero[x + i][y], relx=0.99, rely=0.99, anchor="se")
         self.actualizar_display_atril_ia()
 
 def main():
